@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Road Safety RAG architecture</title>
+  <desc id="desc">Standards ingestion and audit query paths converge on evidence validation and report generation.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#eff6ff"/><stop offset="1" stop-color="#f8fafc"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
+    <style>.box{fill:#fff;stroke:#1e3a5f;stroke-width:2;rx:14}.title{font:700 22px Segoe UI,Arial;fill:#0f172a}.text{font:16px Segoe UI,Arial;fill:#334155}.small{font:14px Segoe UI,Arial;fill:#475569}.flow{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.accent{fill:#e0f2fe;stroke:#0369a1}.gate{fill:#fef3c7;stroke:#b45309}.output{fill:#dcfce7;stroke:#15803d}</style>
+  </defs>
+  <rect width="1200" height="620" fill="url(#bg)"/>
+  <text x="600" y="42" text-anchor="middle" class="title">Evidence-first Road Safety RAG</text>
+  <rect class="box" x="40" y="85" width="230" height="115"/><text class="title" x="155" y="120" text-anchor="middle">Licensed PDFs</text><text class="small" x="155" y="150" text-anchor="middle">OCR + table-aware chunks</text><text class="small" x="155" y="175" text-anchor="middle">registry/hash identity</text>
+  <rect class="box accent" x="355" y="85" width="250" height="115"/><text class="title" x="480" y="120" text-anchor="middle">Hybrid index</text><text class="small" x="480" y="150" text-anchor="middle">dense + BM25 + reranker</text><text class="small" x="480" y="175" text-anchor="middle">table/page neighbours</text>
+  <rect class="box" x="40" y="360" width="230" height="115"/><text class="title" x="155" y="395" text-anchor="middle">DL/CV workbook</text><text class="small" x="155" y="425" text-anchor="middle">measurements + GPS</text><text class="small" x="155" y="450" text-anchor="middle">multiple values retained</text>
+  <rect class="box accent" x="355" y="360" width="250" height="115"/><text class="title" x="480" y="395" text-anchor="middle">Context resolver</text><text class="small" x="480" y="425" text-anchor="middle">road class + carriageway</text><text class="small" x="480" y="450" text-anchor="middle">OSM facts kept provisional</text>
+  <rect class="box gate" x="690" y="200" width="250" height="180"/><text class="title" x="815" y="238" text-anchor="middle">Evidence gate</text><text class="small" x="815" y="270" text-anchor="middle">applicability checks</text><text class="small" x="815" y="296" text-anchor="middle">quote/value validation</text><text class="small" x="815" y="322" text-anchor="middle">edition policy</text><text class="small" x="815" y="348" text-anchor="middle">explicit abstention</text>
+  <rect class="box output" x="1000" y="200" width="165" height="180"/><text class="title" x="1082" y="238" text-anchor="middle">Outputs</text><text class="small" x="1082" y="275" text-anchor="middle">Excel report</text><text class="small" x="1082" y="302" text-anchor="middle">HTML map</text><text class="small" x="1082" y="329" text-anchor="middle">citations</text><text class="small" x="1082" y="356" text-anchor="middle">audit trail</text>
+  <path class="flow" d="M270 142 H355"/><path class="flow" d="M605 142 C660 142 650 245 690 245"/><path class="flow" d="M270 418 H355"/><path class="flow" d="M605 418 C660 418 650 335 690 335"/><path class="flow" d="M940 290 H1000"/>
+  <rect x="355" y="525" width="585" height="54" rx="12" fill="#f1f5f9" stroke="#64748b"/><text class="text" x="647" y="548" text-anchor="middle">Reviewed evaluation: retrieval → citation → threshold → decision</text><text class="small" x="647" y="570" text-anchor="middle">metrics are published only after expert-labelled cases exist</text>
+</svg>

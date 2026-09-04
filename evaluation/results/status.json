@@ -1,0 +1,23 @@
+{
+  "status": "pending_expert_review",
+  "published_metrics": false,
+  "case_count": 0,
+  "minimum_target_cases": 50,
+  "recommended_target_cases": 100,
+  "reason": "No independent expert-reviewed gold cases have been supplied yet.",
+  "metrics": {
+    "recall_at_5": null,
+    "recall_at_10": null,
+    "mean_reciprocal_rank": null,
+    "citation_accuracy": null,
+    "standard_accuracy": null,
+    "edition_accuracy": null,
+    "value_accuracy": null,
+    "comparator_accuracy": null,
+    "applicability_accuracy": null,
+    "abstention_precision": null,
+    "abstention_recall": null,
+    "end_to_end_audit_decision_accuracy": null,
+    "latency_ms_by_metric": null
+  }
+}

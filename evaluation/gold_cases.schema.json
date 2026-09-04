@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reviewed road-safety RAG gold cases",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "case_id",
+      "metric_key",
+      "road_context",
+      "expected_status"
+    ],
+    "properties": {
+      "case_id": {"type": "string", "minLength": 1},
+      "metric_key": {
+        "enum": [
+          "min_lane_width",
+          "min_sign_height",
+          "traffic_sign_width",
+          "traffic_sign_height",
+          "min_kerb_height",
+          "min_w_beam_barrier_height",
+          "min_concrete_barrier_height",
+          "min_radius_curvature"
+        ]
+      },
+      "road_context": {"type": "object"},
+      "expected_standard_id": {"type": ["string", "null"]},
+      "expected_edition_year": {"type": ["integer", "null"]},
+      "expected_page": {"type": ["integer", "null"], "minimum": 1},
+      "expected_evidence_id": {"type": ["string", "null"]},
+      "expected_content_hash": {"type": ["string", "null"]},
+      "expected_quote": {"type": ["string", "null"]},
+      "expected_value_m": {"type": ["number", "null"], "exclusiveMinimum": 0},
+      "expected_second_value_m": {"type": ["number", "null"], "exclusiveMinimum": 0},
+      "expected_comparator": {"type": ["string", "null"]},
+      "expected_status": {"type": "string", "default": "found"},
+      "expected_applicable": {"type": ["boolean", "null"]},
+      "observed_values_m": {
+        "type": "array",
+        "items": {"type": "number"},
+        "default": []
+      },
+      "expected_audit_decision": {
+        "enum": ["PASS", "FAIL", "REVIEW_REQUIRED", "NOT_OBSERVED", null]
+      },
+      "reviewer_id": {"type": ["string", "null"]},
+      "reviewed_on": {"type": ["string", "null"], "format": "date"},
+      "notes": {"type": "string", "default": ""}
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {"expected_status": {"const": "found"}},
+          "required": ["expected_status"]
+        },
+        "then": {
+          "anyOf": [
+            {
+              "required": ["expected_evidence_id"],
+              "properties": {"expected_evidence_id": {"type": "string", "minLength": 1}}
+            },
+            {
+              "required": ["expected_content_hash"],
+              "properties": {"expected_content_hash": {"type": "string", "minLength": 1}}
+            },
+            {
+              "required": ["expected_quote"],
+              "properties": {"expected_quote": {"type": "string", "minLength": 1}}
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

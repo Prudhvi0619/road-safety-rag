@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Standards corpus provenance manifest",
+  "type": "object",
+  "required": ["schema_version", "documents"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "standard_id",
+          "edition_year",
+          "file_sha256",
+          "official_source_url",
+          "licence_basis",
+          "reviewed_by",
+          "reviewed_on"
+        ],
+        "properties": {
+          "standard_id": {"type": "string"},
+          "edition_year": {"type": "integer"},
+          "amendments": {"type": "array", "items": {"type": "string"}},
+          "supersedes": {"type": ["string", "null"]},
+          "file_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "official_source_url": {"type": "string", "format": "uri"},
+          "licence_basis": {"type": "string"},
+          "reviewed_by": {"type": "string"},
+          "reviewed_on": {"type": "string", "format": "date"},
+          "notes": {"type": "string"}
+        }
+      }
+    }
+  }
+}

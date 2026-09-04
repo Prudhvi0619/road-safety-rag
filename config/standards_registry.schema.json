@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reviewer-approved standards policy registry",
+  "type": "object",
+  "required": ["schema_version", "standards"],
+  "properties": {
+    "schema_version": {"const": 3},
+    "standards": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "active_edition_year",
+          "approved_sources",
+          "approved_sha256",
+          "official_source_url",
+          "licence_basis",
+          "amendments",
+          "supersedes",
+          "reviewed_by",
+          "reviewed_on",
+          "notes"
+        ],
+        "properties": {
+          "active_edition_year": {"type": ["integer", "null"]},
+          "approved_sources": {"type": "array", "items": {"type": "string"}},
+          "source_aliases": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Explicit filename aliases used only for identity; aliases do not verify provenance."
+          },
+          "approved_sha256": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"}
+          },
+          "official_source_url": {"type": ["string", "null"], "format": "uri"},
+          "licence_basis": {"type": ["string", "null"]},
+          "amendments": {"type": "array", "items": {"type": "string"}},
+          "supersedes": {"type": ["string", "null"]},
+          "reviewed_by": {"type": ["string", "null"]},
+          "reviewed_on": {"type": ["string", "null"], "format": "date"},
+          "notes": {"type": "string"}
+        }
+      }
+    }
+  }
+}
