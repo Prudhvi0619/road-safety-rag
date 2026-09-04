@@ -25,6 +25,6 @@ jobs:
       - name: CLI smoke test
         run: road-safety-rag --help
       - name: Build wheel without dependency resolution
-        run: python -m pip wheel . --no-deps --no-build-isolation --wheel-dir dist
+        run: python -m pip wheel . --no-deps --wheel-dir dist
       - name: Repository hygiene
         run: python -m pytest tests/test_repository_hygiene.py
