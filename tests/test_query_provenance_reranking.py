@@ -8,7 +8,6 @@ import pytest
 from road_safety_rag.models import RetrievalHit, RoadContext
 from road_safety_rag.retrieval import HybridRetriever
 
-
 QUERIES = ["Q1 canonical", "Q2 dense", "Q3 alternate"]
 
 
