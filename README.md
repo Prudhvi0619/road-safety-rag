@@ -10,6 +10,8 @@ The system compares observed road measurements with applicable values retrieved 
 
 - Page-aware PDF ingestion with optional OCR, deterministic chunk identifiers, and table-aware row grouping that repeats captions, headers, and units.
 - Hybrid dense + BM25 retrieval, cross-encoder reranking for final audits, neighbouring-page expansion, and exhaustive engineering-term scans.
+- Manifest-validated structured evidence participates in the same semantic reranking stage for requirements embedded in diagrams or OCR-resistant figures; it is never assigned a forced top rank.
+- Query provenance preserves the best dense and lexical query for each passage before applying the final `0.88 semantic + 0.12 normalized fusion` score.
 - Registry/hash-first standard identity resolution; OCR/fuzzy guesses remain quarantined review candidates.
 - Applicability gating for road class, terrain, carriageway, lane configuration, feature type, and speed basis.
 - Quote, unit, comparator, value, standard, edition, and page validation before a threshold becomes audit-ready.
@@ -103,13 +105,25 @@ Route-specific coordinates, carriageway overrides, private figure transcriptions
 
 The evaluation implementation reports Recall@5, Recall@10, mean reciprocal rank, citation/standard/edition/value/comparator/applicability accuracy, abstention precision and recall, end-to-end audit-decision accuracy, and latency by metric.
 
-No expert-reviewed gold set has been supplied yet, so this repository publishes **no accuracy claim**. `evaluation/results/status.json` records the gap explicitly. After 50–100 independently reviewed cases are available:
+Current controlled validation results are deliberately reported by test scope:
+
+| Validation scope | Result |
+|---|---:|
+| 7 distinct, manually source-page-verified retrieval cases | Recall@5 **100%**, Recall@10 **100%**, MRR **0.8857** |
+| 100 controlled synthetic cases with known expected outcomes | End-to-end audit-decision agreement **100%** |
+| Audit-mode latency on the seven source-level cases | approximately **8–11 seconds per metric** |
+
+The 100-case benchmark tests retrieval/extraction integration, boundary handling, applicability, abstention and deterministic PASS/FAIL logic using deliberately generated measurements. It is **not** a field-accuracy, CV-measurement-accuracy, nationwide OSM-accuracy or production-safety claim. Retrieval metrics are reported only on the seven distinct source-level cases so repeated synthetic variants do not inflate Recall or MRR. See [evaluation/VALIDATION.md](evaluation/VALIDATION.md) and [evaluation/results/controlled_validation_summary.json](evaluation/results/controlled_validation_summary.json).
+
+Independent expert review is still pending. `evaluation/results/status.json` records that gap explicitly. After 50–100 independently reviewed field cases are available:
 
 ```text
 road-safety-rag evaluate path/to/reviewed_gold.json --with-llm --output evaluation/results/end_to_end.json
 ```
 
 CI passing is software verification; it is not RAG-quality validation.
+
+OpenStreetMap context was independently checked only for one NH161 corridor. That check demonstrated the context-resolution workflow, not general OSM accuracy. Route-specific configuration and source material remain excluded from this public repository.
 
 ## Standards provenance
 

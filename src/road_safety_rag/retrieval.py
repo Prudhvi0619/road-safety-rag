@@ -9,6 +9,7 @@ from functools import lru_cache
 from .catalog import MetricSpec
 from .config import Settings
 from .models import RetrievalHit, RoadContext
+from .structured_evidence import StructuredEvidenceRegistry
 
 TOKEN_RE = re.compile(r"[a-z0-9]+(?:[.:/-][a-z0-9]+)*", re.IGNORECASE)
 NUMERIC_WITH_UNIT_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(?:mm|cm|m|metres?|meters?|km|km/h)\b", re.I)
@@ -119,8 +120,13 @@ class BM25Index:
 class HybridRetriever:
     """Dense + lexical retrieval with RRF, source priors, and diversity."""
 
+    includes_structured_evidence = True
+
     def __init__(self, settings: Settings):
         self.settings = settings
+        self.structured_evidence = StructuredEvidenceRegistry.load(
+            settings.project_dir / "config" / "structured_evidence.json"
+        )
         self.vector_store = self._vector_store()
         raw = self.vector_store._collection.get(include=["documents", "metadatas"])
         self.ids: list[str] = list(raw.get("ids") or [])
@@ -163,7 +169,9 @@ class HybridRetriever:
     def retrieve(self, metric: MetricSpec, context: RoadContext) -> list[RetrievalHit]:
         queries = self._queries(metric, context)
         dense_ranks: dict[str, int] = {}
+        dense_best_queries: dict[str, str] = {}
         lexical_ranks: dict[str, int] = {}
+        lexical_best_queries: dict[str, str] = {}
         scan_ranks: dict[str, int] = {}
 
         for query in queries:
@@ -171,14 +179,19 @@ class HybridRetriever:
                 self.vector_store.similarity_search(query, k=self.settings.dense_k), start=1
             ):
                 document_id = self._resolve_id(document.page_content, document.metadata)
-                if document_id:
-                    dense_ranks[document_id] = min(rank, dense_ranks.get(document_id, 10**9))
+                if document_id and (
+                    document_id not in dense_ranks or rank < dense_ranks[document_id]
+                ):
+                    dense_ranks[document_id] = rank
+                    dense_best_queries[document_id] = query
 
             for rank, (index, _score) in enumerate(
                 self.bm25.search(query, self.settings.lexical_k), start=1
             ):
                 document_id = self.ids[index]
-                lexical_ranks[document_id] = min(rank, lexical_ranks.get(document_id, 10**9))
+                if document_id not in lexical_ranks or rank < lexical_ranks[document_id]:
+                    lexical_ranks[document_id] = rank
+                    lexical_best_queries[document_id] = query
 
         if self.settings.exhaustive_retrieval:
             scan_ranks = self._exhaustive_scan(metric, context)
@@ -230,14 +243,61 @@ class HybridRetriever:
             # signal than a semantically similar discussion or contents page.
             if exact_match and has_value_with_unit:
                 score += 0.022
-            scored.append(self._hit(index, score, dense_rank, lexical_rank))
+            hit = self._hit(index, score, dense_rank, lexical_rank)
+            dense_best_query = dense_best_queries.get(document_id)
+            lexical_best_query = lexical_best_queries.get(document_id)
+            if dense_best_query is not None:
+                hit.metadata["dense_best_query"] = dense_best_query
+            if lexical_best_query is not None:
+                hit.metadata["lexical_best_query"] = lexical_best_query
+            scored.append(hit)
 
         scored.sort(key=lambda hit: hit.score, reverse=True)
         expanded = self._expand_neighbors(scored[: max(self.settings.final_k, 6)])
         combined = self._deduplicate(scored + expanded)
         if self.reranker:
-            combined = self._rerank(queries[0], combined[:30])
+            # Keep the existing corpus budget. Validated transcriptions must
+            # reach the cross-encoder even when their lexical prior is below it.
+            candidates = combined[:30]
+            structured = self._structured_candidates(metric, candidates, queries)
+            combined = self._rerank(queries, self._deduplicate(candidates + structured))
+        else:
+            structured = self._structured_candidates(metric, combined, queries)
+            combined = self._deduplicate(combined + structured)
         return self._diversify(combined, self.settings.final_k)
+
+    def _structured_candidates(
+        self, metric: MetricSpec, fused_hits: list[RetrievalHit], queries: list[str]
+    ) -> list[RetrievalHit]:
+        registry = getattr(self, "structured_evidence", None)
+        if registry is None:
+            return []
+        hits = registry.hits(
+            metric.key, self.settings.persist_directory / "index_manifest.json"
+        )
+        if not hits:
+            return []
+        hits = self._deduplicate(hits)
+        # Score out-of-index passages against the same queries and candidate
+        # texts. Map min/max-normalized BM25 relevance onto the fused score
+        # range, without changing any existing corpus score or inventing a
+        # dense rank. Verification alone supplies no relevance bonus.
+        candidates = fused_hits + hits
+        lexical = BM25Index([tokenize(hit.text) for hit in candidates])
+        relevance = [0.0] * len(candidates)
+        for query in queries:
+            for index, score in lexical.search(query, len(candidates)):
+                relevance[index] = max(relevance[index], score)
+        low, high = min(relevance), max(relevance)
+        scores = [hit.score for hit in fused_hits]
+        fusion_low = min(scores) if scores else 0.0
+        fusion_high = max(scores) if scores else 1.0 / 61
+        for index, hit in enumerate(hits, start=len(fused_hits)):
+            normalized = (relevance[index] - low) / (high - low) if high > low else 0.5
+            hit.score = fusion_low + normalized * (fusion_high - fusion_low)
+            hit.metadata["structured_lexical_score"] = relevance[index]
+            hit.metadata["structured_normalized_prior"] = normalized
+        return hits
 
     def _exhaustive_scan(self, metric: MetricSpec, context: RoadContext) -> dict[str, int]:
         """Scan every indexed chunk for explicit feature + measurement evidence.
@@ -366,13 +426,21 @@ class HybridRetriever:
         return expanded
 
     @staticmethod
-    def _deduplicate(hits: list[RetrievalHit]) -> list[RetrievalHit]:
-        best: dict[str, RetrievalHit] = {}
-        for hit in hits:
+    def _deduplicate(
+        hits: list[RetrievalHit], *, preserve_order: bool = False
+    ) -> list[RetrievalHit]:
+        selected: list[RetrievalHit] = []
+        evidence_ids: set[str] = set()
+        provenance_keys: set[str] = set()
+        ordered = hits if preserve_order else sorted(hits, key=lambda hit: hit.score, reverse=True)
+        for hit in ordered:
             key = hit.content_hash or re.sub(r"\s+", " ", hit.text.casefold())[:500]
-            if key not in best or hit.score > best[key].score:
-                best[key] = hit
-        return sorted(best.values(), key=lambda hit: hit.score, reverse=True)
+            duplicate = hit.evidence_id in evidence_ids or key in provenance_keys
+            evidence_ids.add(hit.evidence_id)
+            provenance_keys.add(key)
+            if not duplicate:
+                selected.append(hit)
+        return selected
 
     @staticmethod
     def _diversify(hits: list[RetrievalHit], limit: int) -> list[RetrievalHit]:
@@ -405,18 +473,64 @@ class HybridRetriever:
                 " Cache the model first or temporarily set ROAD_RAG_ALLOW_MODEL_DOWNLOAD=true."
             ) from exc
 
-    def _rerank(self, query: str, hits: list[RetrievalHit]) -> list[RetrievalHit]:
-        scores = self.reranker.predict([(query, hit.text) for hit in hits])
+    def _rerank(self, queries: list[str] | str, hits: list[RetrievalHit]) -> list[RetrievalHit]:
+        if not hits:
+            return []
+
+        canonical_queries = [queries] if isinstance(queries, str) else list(queries)
+        if not canonical_queries:
+            raise ValueError("At least one reranker query is required.")
+
+        pairs: list[tuple[str, str]] = []
+        pair_indices: dict[tuple[str, str], int] = {}
+        hit_pair_indices: list[list[int]] = []
+        hit_queries: list[list[str]] = []
+        for hit in hits:
+            selected_queries: list[str] = []
+            for metadata_key in ("dense_best_query", "lexical_best_query"):
+                candidate = hit.metadata.get(metadata_key)
+                if (
+                    isinstance(candidate, str)
+                    and candidate
+                    and candidate not in selected_queries
+                ):
+                    selected_queries.append(candidate)
+            if not selected_queries:
+                selected_queries.append(canonical_queries[0])
+
+            indices: list[int] = []
+            for query in selected_queries:
+                pair = (query, hit.text)
+                pair_index = pair_indices.get(pair)
+                if pair_index is None:
+                    pair_index = len(pairs)
+                    pair_indices[pair] = pair_index
+                    pairs.append(pair)
+                indices.append(pair_index)
+            hit_pair_indices.append(indices)
+            hit_queries.append(selected_queries)
+
+        scores = self.reranker.predict(pairs)
+        if len(scores) != len(pairs):
+            raise RuntimeError(
+                f"Reranker returned {len(scores)} score(s) for {len(pairs)} query/chunk pair(s)."
+            )
+
         fusion_scores = [hit.score for hit in hits]
         low = min(fusion_scores, default=0.0)
         high = max(fusion_scores, default=0.0)
         span = high - low
-        for hit, raw_score in zip(hits, scores):
-            reranker_score = float(raw_score)
+        for hit, evaluated_queries, indices in zip(hits, hit_queries, hit_pair_indices):
+            raw_scores = [float(scores[index]) for index in indices]
+            winning_offset = max(range(len(raw_scores)), key=raw_scores.__getitem__)
+            reranker_score = raw_scores[winning_offset]
+            winning_query = evaluated_queries[winning_offset]
             semantic_score = 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, reranker_score))))
             fusion_score = (hit.score - low) / span if span > 0 else 0.5
             hit.metadata["fusion_score"] = round(hit.score, 8)
             hit.metadata["reranker_score"] = round(reranker_score, 8)
+            hit.metadata["reranker_queries_evaluated"] = evaluated_queries
+            hit.metadata["reranker_winning_query"] = winning_query
             # Cross-encoder relevance dominates, while a small RRF/source-prior
             # contribution prevents near-ties from discarding applicability signals.
             hit.score = 0.88 * semantic_score + 0.12 * fusion_score

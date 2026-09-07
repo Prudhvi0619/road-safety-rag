@@ -1,0 +1,36 @@
+{
+  "status": "controlled_source_verified_validation",
+  "generated_on": "2026-09-07",
+  "retrieval": {
+    "distinct_case_count": 7,
+    "recall_at_5": 1.0,
+    "recall_at_10": 1.0,
+    "mean_reciprocal_rank": 0.8857,
+    "baseline_recall_at_5": 0.8571,
+    "baseline_recall_at_10": 0.8571,
+    "baseline_mean_reciprocal_rank": 0.8571,
+    "w_beam_matching_rank_after_structured_evidence": 5
+  },
+  "synthetic_end_to_end": {
+    "case_count": 100,
+    "citation_accuracy": 1.0,
+    "standard_accuracy": 1.0,
+    "edition_accuracy": 1.0,
+    "value_accuracy": 1.0,
+    "comparator_accuracy": 1.0,
+    "applicability_accuracy": 1.0,
+    "end_to_end_audit_decision_accuracy": 1.0
+  },
+  "audit_latency_seconds_per_metric": {
+    "approximate_min": 8,
+    "approximate_max": 11
+  },
+  "independent_expert_review": false,
+  "limitations": [
+    "Retrieval evaluation contains seven distinct source-level cases.",
+    "The 100-case benchmark is controlled and synthetic, not a field-accuracy study.",
+    "OSM context was independently checked on one NH161 corridor.",
+    "Standards provenance remains provisional.",
+    "Severity is a rule-based screening classification, not an auditor-approved engineering risk model."
+  ]
+}

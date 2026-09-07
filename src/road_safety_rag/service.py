@@ -172,14 +172,16 @@ class StandardsRAG:
             if retrieved_hits is not None
             else self.retriever.retrieve(metric, context)
         )
-        structured_hits = self.structured_evidence.hits(
-            metric.key, self.settings.persist_directory / "index_manifest.json"
-        )
-        if structured_hits:
-            structured_ids = {hit.evidence_id for hit in structured_hits}
-            hits = structured_hits + [
-                hit for hit in hits if hit.evidence_id not in structured_ids
-            ]
+        if not getattr(self.retriever, "includes_structured_evidence", False):
+            # Compatibility for custom retrievers that do not supply verified
+            # transcriptions. Never reinsert evidence rejected by HybridRetriever.
+            structured_hits = self.structured_evidence.hits(
+                metric.key, self.settings.persist_directory / "index_manifest.json"
+            )
+            for hit in structured_hits:
+                hit.score = min((item.score for item in hits), default=1.0 / 61)
+            hits = [*hits, *structured_hits]
+        hits = HybridRetriever._deduplicate(hits, preserve_order=True)
         if not hits:
             return ThresholdResult(
                 metric_key=metric.key,
@@ -1001,6 +1003,6 @@ class StandardsRAG:
             "manifest_stamp": manifest_stamp,
             "registry_stamp": registry_stamp,
             "structured_evidence_stamp": structured_stamp,
-            "schema": 14,
+            "schema": 15,
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
